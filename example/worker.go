@@ -7,35 +7,37 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/i/goku"
-	"github.com/i/goku/example/jobs"
+	//"github.com/i/goku/example/jobs"
 )
 
 var rc redis.Conn
-
-func init() {
-	goku.Register(
-		jobs.WriteMessageJob{},
-	)
-}
 
 func main() {
 	numWorkers := runtime.NumCPU()
 	runtime.GOMAXPROCS(numWorkers)
 
 	config := goku.WorkerConfig{
-		NumWorkers:   numWorkers,
-		PollInterval: time.Second,
-		Queue:        "lo_priority",
-		Failure: func(worker int, jobName string, r interface{}) {
-			log.Printf("Worker %d failed while executing: %s\n%r", worker, jobName, r)
+		NumWorkers: numWorkers,
+		Queues:     []string{"lo_priority"},
+		Hostport:   "127.0.0.1:6379",
+		Timeout:    time.Second,
+	}
+
+	opts := goku.WorkerPoolOptions{
+		Failure: func(worker int, job goku.Job, r interface{}) {
+			log.Printf("Worker %d failed while executing: %s-%s\n%r", worker, job.Name(), job.Version(), r)
+		},
+		Jobs: []goku.Job{
+		//jobs.WriteMessageJob{},
 		},
 	}
 
-	jobs := []goku.Job{
-		jobs.WriteMessageJob{},
+	wp, err := goku.NewWorkerPool(config, opts)
+	if err != nil {
+		log.Fatalf("Error creating worker pool: %v", err)
 	}
 
-	if err := goku.Work(config, jobs); err != nil {
-		log.Fatal(err)
+	if err := wp.Work(); err != nil {
+		log.Fatalf("Error starting worker pool: %v", err)
 	}
 }

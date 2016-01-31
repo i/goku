@@ -9,12 +9,12 @@ import (
 var ErrInvalidArgs = errors.New("invalid args")
 
 type WriteMessageJob struct {
-	Name    string
+	To      string
 	Message string
 }
 
 func (j WriteMessageJob) Execute() error {
-	f, err := os.Create(fmt.Sprintf("message_to_%s.txt", j.Name))
+	f, err := os.Create(fmt.Sprintf("message_to_%s.txt", j.To))
 	if err != nil {
 		return err
 	}
@@ -25,4 +25,12 @@ func (j WriteMessageJob) Execute() error {
 	}
 
 	return nil
+}
+
+func (j WriteMessageJob) Name() string {
+	return "write_messag_job"
+}
+
+func (j WriteMessageJob) Version() string {
+	return "0.0.0"
 }

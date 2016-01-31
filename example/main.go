@@ -2,14 +2,22 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/i/goku"
 	"github.com/i/goku/example/jobs"
 )
 
 func main() {
+	goku.Configure(
+		goku.BrokerConfig{
+			Hostport: "127.0.0.1:6379",
+			Timeout:  time.Second,
+		},
+	)
+
 	j := jobs.WriteMessageJob{
-		Name:    "Xzibit",
+		To:      "Xzibit",
 		Message: "Hey man",
 	}
 
