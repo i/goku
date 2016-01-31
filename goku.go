@@ -12,6 +12,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
+// goku errors
 var (
 	ErrPointer = errors.New("method receiver was a pointer when it shouldn't be")
 )
@@ -96,27 +97,31 @@ type WorkerConfig struct {
 type FailureFunc func(worker int, jobName string, r interface{})
 
 func Work(config WorkerConfig, jobs []Job) error {
-	ch := make(chan marshalledJob)
+	ch := make(chan []byte)
+	requeuerCh := make(chan []byte)
 
 	for i := 0; i < config.NumWorkers; i++ {
-		go worker(i, ch, config.Failure)
+		go worker(i, ch, requeuerCh, config.Failure)
 	}
 
-	for ; ; time.Sleep(time.Second) {
+	for ; ; time.Sleep(config.PollInterval) {
 		jsn, err := redis.Bytes(rc.Do("LPOP", config.Queue))
 		if err != nil {
 			continue
 		}
-
-		var j marshalledJob
-		if err := json.Unmarshal(jsn, &j); err != nil {
-			log.Fatal(err)
-		}
-		ch <- j
+		ch <- jsn
 	}
 }
 
-func worker(n int, ch chan marshalledJob, failure FailureFunc) {
+func reqeuer(qn string, ch chan []byte) {
+	for jsn := range ch {
+		if _, err := rc.Do("RPUSH", qn, jsn); err != nil {
+			// TODO (retry)
+		}
+	}
+}
+
+func worker(n int, ch chan []byte, requeuerCh chan []byte, failure FailureFunc) {
 	var jobName string
 
 	if failure != nil {
@@ -127,11 +132,17 @@ func worker(n int, ch chan marshalledJob, failure FailureFunc) {
 		}()
 	}
 
-	for j := range ch {
+	for jsn := range ch {
+		var j marshalledJob
+		if err := json.Unmarshal(jsn, &j); err != nil {
+			log.Fatal(err)
+		}
+
 		jobName = j.N
-		job, ok := registry[j.N]
+		job, ok := registry[jobName]
 		if !ok {
-			log.Fatal("Invalid job")
+			requeuerCh <- jsn
+			continue
 		}
 
 		nj := reflect.New(reflect.TypeOf(job)).Elem()
