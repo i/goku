@@ -28,9 +28,5 @@ func (j WriteMessageJob) Execute() error {
 }
 
 func (j WriteMessageJob) Name() string {
-	return "write_messag_job"
-}
-
-func (j WriteMessageJob) Version() string {
-	return "0.0.0"
+	return "write_messag_job_v0"
 }

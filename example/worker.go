@@ -25,7 +25,7 @@ func main() {
 
 	opts := goku.WorkerPoolOptions{
 		Failure: func(worker int, job goku.Job, r interface{}) {
-			log.Printf("Worker %d failed while executing: %s-%s\n%r", worker, job.Name(), job.Version(), r)
+			log.Printf("Worker %d failed while executing: %s\n%v\n", worker, job.Name(), r)
 		},
 		Jobs: []goku.Job{
 		//jobs.WriteMessageJob{},

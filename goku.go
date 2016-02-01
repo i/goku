@@ -24,11 +24,10 @@ func Configure(cfg BrokerConfig) error {
 	return nil
 }
 
-// Job is any type that implements Execute, Name, and Version. In order for a
-// job to be valid, all fields used within its Execute method must be exported.
+// Job is any type that implements Execute and Name. In order for a job to be
+// valid, all fields used within its Execute method must be exported.
 type Job interface {
 	Name() string
-	Version() string
 	Execute() error
 }
 
