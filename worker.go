@@ -196,6 +196,7 @@ func (wp *WorkerPool) startReqeuer(qn string) {
 		case <-wp.killCh:
 			return
 		case jsn := <-ch:
+			wp.wg.Add(1)
 			for i := 0; i < wp.requeueRetries; i++ {
 				conn := wp.redisPool.Get()
 				_, err := conn.Do("RPUSH", qn, jsn)
@@ -204,6 +205,7 @@ func (wp *WorkerPool) startReqeuer(qn string) {
 					break
 				}
 			}
+			wp.wg.Done()
 		}
 	}
 }
