@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -30,6 +31,9 @@ type WorkerPool struct {
 	numWorkers int
 	registry   map[string]Job
 	timeout    time.Duration
+	wg         sync.WaitGroup
+
+	sync.Mutex
 }
 
 type WorkerPoolOptions struct {
@@ -76,7 +80,6 @@ func NewWorkerPool(cfg WorkerConfig, opts WorkerPoolOptions) (*WorkerPool, error
 		redisPool:  redisPool,
 		workCh:     make(chan qj),
 		requeueMap: make(map[string]chan []byte),
-		killCh:     make(chan struct{}),
 		numWorkers: cfg.NumWorkers,
 		registry:   make(map[string]Job),
 		fail:       opts.Failure,
@@ -95,17 +98,23 @@ func NewWorkerPool(cfg WorkerConfig, opts WorkerPoolOptions) (*WorkerPool, error
 	return wp, nil
 }
 
-func (wp *WorkerPool) Work() error {
+func (wp *WorkerPool) Start() {
+	wp.Lock()
+	wp.killCh = make(chan struct{})
+
 	for i := 0; i < wp.numWorkers; i++ {
 		go wp.startWorker(i)
 	}
 
+	go wp.startPolling()
+}
+
+func (wp *WorkerPool) startPolling() {
 	qstr := strings.Join(wp.queues, " ")
 	for {
 		conn := wp.redisPool.Get()
 		res, err := redis.ByteSlices(conn.Do("BLPOP", qstr, wp.timeout.Seconds()))
 		conn.Close()
-		fmt.Println("BLPOPED", res, err)
 		if err != nil {
 			continue
 		}
@@ -114,14 +123,37 @@ func (wp *WorkerPool) Work() error {
 	}
 }
 
+// Stop waits for all jobs to finish executing, and then returns.
+func (wp *WorkerPool) Stop() {
+	close(wp.killCh)
+	fmt.Println("YO")
+	wp.wg.Wait()
+	fmt.Println("what gives")
+	wp.Unlock()
+}
+
 type qj struct {
 	queue string
 	jsn   []byte
 }
 
 func (wp *WorkerPool) startWorker(n int) {
-	var job Job
+	for {
+		select {
+		case <-wp.killCh:
+			return
+		case qj := <-wp.workCh:
+			job, err := wp.getJob(qj.jsn)
+			if err != nil {
+				wp.requeueMap[qj.queue] <- qj.jsn
+				continue
+			}
+			wp.doWork(job, n)
+		}
+	}
+}
 
+func (wp *WorkerPool) doWork(job Job, n int) {
 	if wp.fail != nil {
 		defer func() {
 			if r := recover(); r != nil {
@@ -130,23 +162,10 @@ func (wp *WorkerPool) startWorker(n int) {
 		}()
 	}
 
-	for {
-		fmt.Println("worker", n, "waiting")
-		select {
-		case <-wp.killCh:
-			return
-		case qj := <-wp.workCh:
-			var err error
-			job, err = wp.getJob(qj.jsn)
-			if err != nil {
-				wp.requeueMap[qj.queue] <- qj.jsn
-				continue
-			}
-
-			if err := job.Execute(); err != nil {
-				wp.fail(n, job, err)
-			}
-		}
+	wp.wg.Add(1)
+	defer wp.wg.Done()
+	if err := job.Execute(); err != nil {
+		wp.fail(n, job, err)
 	}
 }
 
@@ -161,10 +180,17 @@ func (wp *WorkerPool) getJob(jsn []byte) (Job, error) {
 		return nil, ErrInvalidJob
 	}
 
-	nj := reflect.New(reflect.TypeOf(emptyJob)).Elem()
+	rt := reflect.TypeOf(emptyJob)
+	nj := reflect.New(rt).Elem()
+
 	for k, v := range j.A {
 		field := nj.FieldByName(k)
 		if field.CanSet() {
+
+			if f, ok := v.(float64); ok {
+				v = convertFloat(field.Kind(), f)
+			}
+
 			field.Set(reflect.ValueOf(v))
 		}
 	}
