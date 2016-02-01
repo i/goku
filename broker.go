@@ -33,6 +33,7 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 	return &Broker{
 		rc:       redis.NewConn(conn, cfg.Timeout, cfg.Timeout),
 		registry: make(map[string]Job),
+		dq:       cfg.DefaultQueue,
 	}, nil
 }
 
