@@ -78,11 +78,6 @@ func NewWorkerPool(cfg WorkerConfig, opts WorkerPoolOptions) (*WorkerPool, error
 		wp.registry[job.Name()] = job
 	}
 
-	for _, q := range wp.queues {
-		wp.requeueMap[q] = make(chan []byte)
-		go wp.startReqeuer(q)
-	}
-
 	return wp, nil
 }
 
@@ -94,6 +89,11 @@ func (wp *WorkerPool) Start() {
 
 	for i := 0; i < wp.numWorkers; i++ {
 		go wp.startWorker(i)
+	}
+
+	for _, q := range wp.queues {
+		wp.requeueMap[q] = make(chan []byte)
+		go wp.startReqeuer(q)
 	}
 
 	go wp.startPolling()
