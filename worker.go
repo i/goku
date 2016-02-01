@@ -31,8 +31,7 @@ type WorkerPool struct {
 	registry   map[string]Job
 	timeout    time.Duration
 	wg         sync.WaitGroup
-
-	sync.Mutex
+	m          sync.Mutex
 }
 
 type WorkerPoolOptions struct {
@@ -98,7 +97,7 @@ func NewWorkerPool(cfg WorkerConfig, opts WorkerPoolOptions) (*WorkerPool, error
 }
 
 func (wp *WorkerPool) Start() {
-	wp.Lock()
+	wp.m.Lock()
 	wp.killCh = make(chan struct{})
 
 	for i := 0; i < wp.numWorkers; i++ {
@@ -126,7 +125,7 @@ func (wp *WorkerPool) startPolling() {
 func (wp *WorkerPool) Stop() {
 	close(wp.killCh)
 	wp.wg.Wait()
-	wp.Unlock()
+	wp.m.Unlock()
 }
 
 type qj struct {
