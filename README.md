@@ -29,6 +29,12 @@ func (j SendEmailJob) Execute() error {
   return email.Send(j.To, j.From, j.Subject, j.Body)
 }
 
+// The return value from Name() should be unique from other jobs because it 
+// is used to differentiate between different jobs.
+func (j SendEmailJob) Name() error {
+  return "send_email_job_v0"
+}
+
 ```
 
 how to queue up jobs
@@ -46,7 +52,7 @@ import (
 )
 
 func main() {
-  err := goku.Configure(goku.Config{
+  err := goku.Configure(goku.BrokerConfig{
     Hostport: "127.0.0.1:6379",
     Timeout:  time.Second
   })
@@ -86,18 +92,25 @@ import (
 func main() {
   config := goku.WorkerConfig{
     NumWorkers:   1,
-    PollInterval: time.Second,
-    Queue:        "hi_priority",
+    Queues:       []string{"hi_priority"],
+    Timeout:      time.Second,
+    Hostport:     "127.0.0.1:6379",
   }
 
-  // this worker will only process WriteMessageJobs
-  jobs := []goku.Job{
-    jobs.WriteMessageJob{},
+  opts := goku.WorkerPoolOptions{
+    Jobs: []goku.Job{
+      jobs.WriteMessageJob{},
+    }
+  }
+
+  wp, err := goku.NewWorkerPool(config, opts)
+  if err != nil {
+    log.Fatalf("Error creating worker pool: %v", err)
   }
 
   // blocks forever
-  if err := goku.Work(config, jobs); err != nil {
-    log.Fatal(err)
+  if err := wp.Work(config, jobs); err != nil {
+		log.Fatalf("Error starting worker pool: %v", err)
   }
 }
 ```
