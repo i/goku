@@ -113,3 +113,29 @@ func TestWorker(t *testing.T) {
 
 	assert.True(tjWasCalled)
 }
+
+func TestBrokerBadConfig(t *testing.T) {
+	_, err := NewBroker(BrokerConfig{})
+	assert.Error(t, err)
+}
+
+func TestWorkerPoolBadConfig(t *testing.T) {
+	_, err := NewWorkerPool(WorkerConfig{}, WorkerPoolOptions{})
+	assert.Error(t, err)
+}
+
+func TestConfigureBadConfig(t *testing.T) {
+	err := Configure(BrokerConfig{})
+	assert.Error(t, err)
+}
+
+func TestConfigureGoodConfig(t *testing.T) {
+	hostport := "127.0.0.1:6379"
+	queueName := "goku_test"
+	err := Configure(BrokerConfig{
+		Hostport:     hostport,
+		Timeout:      time.Second,
+		DefaultQueue: queueName,
+	})
+	assert.NoError(t, err)
+}
