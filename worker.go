@@ -2,7 +2,6 @@ package goku
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -126,9 +125,7 @@ func (wp *WorkerPool) startPolling() {
 // Stop waits for all jobs to finish executing, and then returns.
 func (wp *WorkerPool) Stop() {
 	close(wp.killCh)
-	fmt.Println("YO")
 	wp.wg.Wait()
-	fmt.Println("what gives")
 	wp.Unlock()
 }
 

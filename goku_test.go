@@ -2,7 +2,6 @@ package goku
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -23,7 +22,6 @@ func (tj TestJob) Name() string {
 var tjWasCalled bool
 
 func (tj TestJob) Execute() error {
-	fmt.Println("ok")
 	tjWasCalled = true
 	return nil
 }
@@ -110,7 +108,8 @@ func TestWorker(t *testing.T) {
 
 	err = broker.Run(job)
 	assert.NoError(err)
-	time.Sleep(time.Second)
-	fmt.Println("HI")
+	time.Sleep(time.Second) // give workers some time to pull the job out of the queue
 	wp.Stop()
+
+	assert.True(tjWasCalled)
 }
