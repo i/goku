@@ -14,7 +14,7 @@ type WriteMessageJob struct {
 }
 
 func (j WriteMessageJob) Execute() error {
-	f, err := os.Create(fmt.Sprintf("message_to_%s.txt", j.To))
+	f, err := os.Create(fmt.Sprintf("./message_to_%s.txt", j.To))
 	if err != nil {
 		return err
 	}
