@@ -11,17 +11,15 @@ how to get
 defining jobs
 --------
 
-Defining a job is easy. A job only needs to implement two methods: `Name` and `Execute`.
-
-- `Name` simply returns the name of the job. The name should be unique so that
-workers know how what type of job it is and if they can correctly process it.
-- `Execute` is the implementation of the job. All fields used in the job by `Execute`
-  must be exported.
-
 ```go
 package jobs
 
 import "email"
+
+/*
+  Defining jobs is easy. A job only needs to implement two methods: Name() and Execute().
+  Name() simply returns the name of the job. The name should be unique so that workers know how what type of job it is and if they can correctly process it.
+*/
 
 // All fields used in Execute() must be exported!
 type SendEmailJob struct {
@@ -36,7 +34,7 @@ func (j SendEmailJob) Execute() error {
   return email.Send(j.To, j.From, j.Subject, j.Body)
 }
 
-// The return value from Name() should be unique from other jobs because it
+// The return value from Name() should be unique from other jobs because it 
 // is used to differentiate between different jobs.
 func (j SendEmailJob) Name() error {
   return "send_email_job_v0"
@@ -115,9 +113,12 @@ func main() {
     log.Fatalf("Error creating worker pool: %v", err)
   }
 
-  // blocks forever
-  if err := wp.Work(config, jobs); err != nil {
-		log.Fatalf("Error starting worker pool: %v", err)
-  }
+  // doesn't block
+  wp.Start(config, jobs)
+
+  // wait for something...
+
+  // waits for all current jobs to finish
+  wp.Stop()
 }
 ```
