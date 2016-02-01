@@ -139,3 +139,17 @@ func TestConfigureGoodConfig(t *testing.T) {
 	})
 	assert.NoError(t, err)
 }
+
+func TestRunWithPtr(t *testing.T) {
+	hostport := "127.0.0.1:6379"
+	queueName := "goku_test"
+	err := Configure(BrokerConfig{
+		Hostport:     hostport,
+		Timeout:      time.Second,
+		DefaultQueue: queueName,
+	})
+	require.NoError(t, err)
+
+	err = Run(&TestJob{})
+	assert.Equal(t, ErrPointer, err)
+}

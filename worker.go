@@ -23,9 +23,9 @@ type WorkerConfig struct {
 	Password   string        // redis auth password (optional)
 	Timeout    time.Duration // redis timeout
 
-	// if a worker doesn't know how to handle a job it will
-	//be requeued. sometimes requeuing can fail. this field is max number of
-	//retries before losing the job
+	// If a worker doesn't know how to handle a job it will be requeued.
+	// sometimes requeuing can fail. This field is max number of retries before
+	// losing the job.
 	RequeRetries int
 }
 
