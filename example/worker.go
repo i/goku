@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"runtime"
 	"time"
 
@@ -37,7 +40,12 @@ func main() {
 		log.Fatalf("Error creating worker pool: %v", err)
 	}
 
-	if err := wp.Work(); err != nil {
-		log.Fatalf("Error starting worker pool: %v", err)
-	}
+	wp.Start()
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, os.Kill)
+
+	// Block until a signal is received.
+	s := <-c
+	wp.Stop()
 }
