@@ -64,7 +64,7 @@ func TestBroker(t *testing.T) {
 	assert.Equal(args["Bar"], "sup")
 }
 
-func TestWorker(t *testing.T) {
+func TestRun(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
@@ -152,4 +152,57 @@ func TestRunWithPtr(t *testing.T) {
 
 	err = Run(&TestJob{})
 	assert.Equal(t, ErrPointer, err)
+}
+
+func TestRunAt(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	queue := "goku_test"
+	hostport := "127.0.0.1:6379"
+
+	config := WorkerConfig{
+		NumWorkers: 1,
+		Queues:     []string{queue},
+		Hostport:   hostport,
+		Timeout:    time.Second,
+	}
+
+	opts := WorkerPoolOptions{
+		Failure: nil,
+		Jobs: []Job{
+			TestJob{},
+		},
+	}
+
+	// start the worker
+	wp, err := NewWorkerPool(config, opts)
+	assert.NoError(err)
+	wp.Start()
+
+	// schedule the job from the broker
+	broker, err := NewBroker(BrokerConfig{
+		Hostport:     hostport,
+		Timeout:      time.Second,
+		DefaultQueue: queue,
+	})
+
+	require.NoError(err)
+
+	job := TestJob{
+		Foo: 4,
+		Bar: "sup",
+	}
+
+	tjWasCalled = false
+	err = broker.RunAt(job, time.Now().Add(3*time.Second))
+	assert.NoError(err)
+
+	// give workers some time to pull the job out of the queue
+	time.Sleep(2 * time.Second)
+	assert.False(tjWasCalled)
+
+	time.Sleep(2 * time.Second)
+	wp.Stop()
+	assert.True(tjWasCalled)
 }

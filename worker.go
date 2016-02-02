@@ -51,7 +51,8 @@ type WorkerPool struct {
 	registry       map[string]Job
 	timeout        time.Duration
 	wg             sync.WaitGroup
-	m              sync.Mutex
+	m              sync.RWMutex
+	running        bool
 }
 
 // WorkerPoolOptions exists for defining things that wouldn't be possible
@@ -93,6 +94,7 @@ func NewWorkerPool(cfg WorkerConfig, opts WorkerPoolOptions) (*WorkerPool, error
 // processed.
 func (wp *WorkerPool) Start() {
 	wp.m.Lock()
+	wp.running = true
 	wp.killCh = make(chan struct{})
 
 	for i := 0; i < wp.numWorkers; i++ {
@@ -105,26 +107,30 @@ func (wp *WorkerPool) Start() {
 	}
 
 	go wp.startPolling()
+	go wp.startZPolling()
 }
 
 func (wp *WorkerPool) startPolling() {
 	qstr := strings.Join(wp.queues, " ") // standard queues
 
-	var zqstrs []string
-	for _, qname := range wp.queues {
-		zqstrs = append(zqstrs, scheduledQueue(qname))
-	}
-
-	for {
+	for wp.running {
 		conn := wp.redisPool.Get()
 		res, err := redis.ByteSlices(conn.Do(blpop, qstr, wp.timeout.Seconds()))
 		conn.Close()
 		if err != nil {
 			continue
 		}
-
 		wp.workCh <- qj{string(res[0]), res[1]}
+	}
+}
 
+func (wp *WorkerPool) startZPolling() {
+	var zqstrs []string
+	for _, qname := range wp.queues {
+		zqstrs = append(zqstrs, scheduledQueue(qname))
+	}
+
+	for wp.running {
 		now := time.Now().UTC().Unix()
 		for _, zset := range zqstrs {
 			conn := wp.redisPool.Get()
@@ -149,6 +155,7 @@ func (wp *WorkerPool) startPolling() {
 
 // Stop waits for all jobs to finish executing, and then returns.
 func (wp *WorkerPool) Stop() {
+	wp.running = false
 	close(wp.killCh)
 	wp.wg.Wait()
 	wp.m.Unlock()

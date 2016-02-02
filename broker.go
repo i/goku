@@ -75,7 +75,8 @@ func (b *Broker) RunAt(job Job, t time.Time, opts ...JobOptions) error {
 	conn := b.redisPool.Get()
 	defer conn.Close()
 
-	if _, err := conn.Do("ZADD", b.queueOrDefault(jo.Queue), t.UTC().Unix(), jsn); err != nil {
+	queue := scheduledQueue(b.queueOrDefault(jo.Queue))
+	if _, err := conn.Do("ZADD", queue, t.UTC().Unix(), jsn); err != nil {
 		return err
 	}
 	return nil
