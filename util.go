@@ -1,23 +1,24 @@
 package goku
 
-import "reflect"
+import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"time"
+
+	"github.com/garyburd/redigo/redis"
+)
 
 type marshalledJob struct {
 	N string
 	A map[string]interface{}
 }
 
-func (b *Broker) queueOrDefault(qs []string) (string, error) {
-	var q string
-	if len(qs) == 1 {
-		q = qs[0]
-	} else {
-		q = b.dq
+func (b *Broker) queueOrDefault(q string) string {
+	if q == "" {
+		return b.dq
 	}
-	if len(q) == 0 {
-		return "", ErrInvalidQueue
-	}
-	return q, nil
+	return q
 }
 
 func convertFloat(kind reflect.Kind, f float64) interface{} {
@@ -51,4 +52,56 @@ func convertFloat(kind reflect.Kind, f float64) interface{} {
 	default:
 		return 0
 	}
+}
+
+func marshalJob(job Job) ([]byte, error) {
+	rv := reflect.ValueOf(job)
+	rt := reflect.TypeOf(job)
+	for rv.Kind() == reflect.Ptr {
+		return nil, ErrPointer
+	}
+
+	args := make(map[string]interface{})
+
+	for i := 0; i < rv.NumField(); i++ {
+		field := rt.Field(i)
+		value := rv.Field(i)
+		args[field.Name] = value.Interface()
+	}
+
+	return json.Marshal(marshalledJob{N: job.Name(), A: args})
+}
+
+func scheduledQueue(queue string) string {
+	return fmt.Sprintf("z:%s", queue)
+}
+
+func newRedisPool(hostport, password string, timeout time.Duration) (*redis.Pool, error) {
+	pool := &redis.Pool{
+		MaxIdle:     3,
+		IdleTimeout: timeout,
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", hostport)
+			if err != nil {
+				return nil, err
+			}
+			if password != "" {
+				if _, err := c.Do("AUTH", password); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
+			return c, err
+		},
+	}
+
+	conn := pool.Get()
+	defer conn.Close()
+
+	// test the connection
+	_, err := conn.Do("SETEX", "FOO", 3, "BAR")
+	if err != nil {
+		return nil, ErrNoRedis
+	}
+	return pool, nil
 }

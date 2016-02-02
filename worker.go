@@ -10,6 +10,14 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
+// redis commands (prevent typos)
+const (
+	blpop            = "BLPOP"
+	rpush            = "RPUSH"
+	zremrangebyscore = "ZREMRANGEBYSCORE"
+	zrangebyscore    = "ZRANGEBYSCORE"
+)
+
 // FailureFunc is a function that gets executed when a job fails. It will get
 // run when a job returns an error or panics.
 type FailureFunc func(worker int, job Job, r interface{})
@@ -100,16 +108,42 @@ func (wp *WorkerPool) Start() {
 }
 
 func (wp *WorkerPool) startPolling() {
-	qstr := strings.Join(wp.queues, " ")
+	qstr := strings.Join(wp.queues, " ") // standard queues
+
+	var zqstrs []string
+	for _, qname := range wp.queues {
+		zqstrs = append(zqstrs, scheduledQueue(qname))
+	}
+
 	for {
 		conn := wp.redisPool.Get()
-		res, err := redis.ByteSlices(conn.Do("BLPOP", qstr, wp.timeout.Seconds()))
+		res, err := redis.ByteSlices(conn.Do(blpop, qstr, wp.timeout.Seconds()))
 		conn.Close()
 		if err != nil {
 			continue
 		}
 
 		wp.workCh <- qj{string(res[0]), res[1]}
+
+		now := time.Now().UTC().Unix()
+		for _, zset := range zqstrs {
+			conn := wp.redisPool.Get()
+			res, err := redis.ByteSlices(conn.Do(zrangebyscore, zset, 0, now))
+			conn.Close()
+			if err != nil {
+				continue
+			}
+
+			for _, jsn := range res {
+				wp.workCh <- qj{zset, jsn}
+				conn := wp.redisPool.Get()
+				_, err := conn.Do(zremrangebyscore, zset, 0, now)
+				if err != nil {
+					// TODO -- try again
+				}
+				conn.Close()
+			}
+		}
 	}
 }
 
@@ -199,7 +233,7 @@ func (wp *WorkerPool) startReqeuer(qn string) {
 			wp.wg.Add(1)
 			for i := 0; i < wp.requeueRetries; i++ {
 				conn := wp.redisPool.Get()
-				_, err := conn.Do("RPUSH", qn, jsn)
+				_, err := conn.Do(rpush, qn, jsn)
 				conn.Close()
 				if err == nil {
 					break
@@ -208,32 +242,4 @@ func (wp *WorkerPool) startReqeuer(qn string) {
 			wp.wg.Done()
 		}
 	}
-}
-
-func newRedisPool(hostport, password string, timeout time.Duration) (*redis.Pool, error) {
-	pool := &redis.Pool{
-		MaxIdle:     3,
-		IdleTimeout: timeout,
-		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", hostport)
-			if err != nil {
-				return nil, err
-			}
-			if password != "" {
-				if _, err := c.Do("AUTH", password); err != nil {
-					c.Close()
-					return nil, err
-				}
-			}
-			return c, err
-		},
-	}
-
-	conn := pool.Get()
-	defer conn.Close()
-	_, err := conn.Do("SETEX", "FOO", 3, "BAR")
-	if err != nil {
-		return nil, ErrNoRedis
-	}
-	return pool, nil
 }

@@ -1,6 +1,9 @@
 package goku
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // generic goku errors
 var (
@@ -31,11 +34,24 @@ type Job interface {
 	Execute() error
 }
 
+type JobOptions struct {
+	Queue string
+}
+
 // Run schedules a job using the default broker. Before calling goku.Run, the
 // default client must be configured using goku.Configure.
-func Run(j Job, queue ...string) error {
+func Run(j Job, opts ...JobOptions) error {
 	if std == nil {
 		return ErrStdNotInitialized
 	}
-	return std.Run(j, queue...)
+	return std.Run(j, opts...)
+}
+
+// RunAt is the same as Run, except it schedules a job to run no sooner than
+// time t.
+func RunAt(j Job, t time.Time, opts ...JobOptions) error {
+	if std == nil {
+		return ErrStdNotInitialized
+	}
+	return std.RunAt(j, t, opts...)
 }
