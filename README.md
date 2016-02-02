@@ -58,8 +58,9 @@ import (
 
 func main() {
   err := goku.Configure(goku.BrokerConfig{
-    Hostport: "127.0.0.1:6379",
-    Timeout:  time.Second
+    Hostport:      "127.0.0.1:6379",
+    Timeout:       time.Second,
+    DefaultQueue:  "goku_queue",
   })
   if err != nil {
     log.Fatalf("Couldn't configure goku: %v", err)
@@ -72,9 +73,14 @@ func main() {
     Body:    "I thought it was pretty good",
   }
 
-  // schedule the job to run on the "hi_priority" queue
-  if err := goku.Run(job, "hi_priority"); err != nil {
+  // schedule the job to run immediately on the broker's default queue
+  if err := goku.Run(job); err != nil {
     panic("will probably won't get this...")
+  }
+
+  // schedule the job to run in an hour
+  if err := goku.RunAt(time.Now().Add(time.Hour)); err != nil {
+    panic("he's never gonna read these messages :(")
   }
 }
 

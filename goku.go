@@ -10,6 +10,7 @@ var (
 	ErrPointer           = errors.New("method receiver was a pointer when it shouldn't be")
 	ErrStdNotInitialized = errors.New("default broker hasn't been initialized")
 	ErrInvalidQueue      = errors.New("invalid queue name")
+	ErrNoDefaultQueue    = errors.New("no default queue name provided")
 	ErrNoRedis           = errors.New("can't establish a connection to redis")
 	ErrInvalidJob        = errors.New("invalid job")
 )

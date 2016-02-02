@@ -28,6 +28,10 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 		return nil, err
 	}
 
+	if cfg.DefaultQueue == "" {
+		return nil, ErrNoDefaultQueue
+	}
+
 	return &Broker{
 		redisPool: redisPool,
 		registry:  make(map[string]Job),
