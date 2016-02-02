@@ -41,18 +41,26 @@ type JobOptions struct {
 
 // Run schedules a job using the default broker. Before calling goku.Run, the
 // default client must be configured using goku.Configure.
-func Run(j Job, opts ...JobOptions) error {
+func Run(job Job, opts ...JobOptions) error {
 	if std == nil {
 		return ErrStdNotInitialized
 	}
-	return std.Run(j, opts...)
+	return std.Run(job, opts...)
 }
 
 // RunAt is the same as Run, except it schedules a job to run no sooner than
 // time t.
-func RunAt(j Job, t time.Time, opts ...JobOptions) error {
+func RunAt(job Job, at time.Time, opts ...JobOptions) error {
 	if std == nil {
 		return ErrStdNotInitialized
 	}
-	return std.RunAt(j, t, opts...)
+	return std.RunAt(job, at, opts...)
+}
+
+// RunEvery runs a job on a
+func RunEvery(job Job, interval time.Duration, opts ...JobOptions) error {
+	if std == nil {
+		return ErrStdNotInitialized
+	}
+	return std.RunEvery(job, interval, opts...)
 }

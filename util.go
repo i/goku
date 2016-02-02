@@ -1,9 +1,11 @@
 package goku
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -72,12 +74,16 @@ func marshalJob(job Job) ([]byte, error) {
 	return json.Marshal(marshalledJob{N: job.Name(), A: args})
 }
 
-func scheduledQueue(queue string) string {
+func scheduledQueueKey(queue string) string {
 	return fmt.Sprintf("z:%s", queue)
 }
 
-func newRedisPool(hostport, password string, timeout time.Duration) (*redis.Pool, error) {
-	pool := &redis.Pool{
+func cronTabKey(queue string) string {
+	return fmt.Sprintf("h:%s", queue)
+}
+
+func newPool(hostport, password string, timeout time.Duration) (*pool, error) {
+	p := redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: timeout,
 		Dial: func() (redis.Conn, error) {
@@ -95,7 +101,7 @@ func newRedisPool(hostport, password string, timeout time.Duration) (*redis.Pool
 		},
 	}
 
-	conn := pool.Get()
+	conn := p.Get()
 	defer conn.Close()
 
 	// test the connection
@@ -103,5 +109,49 @@ func newRedisPool(hostport, password string, timeout time.Duration) (*redis.Pool
 	if err != nil {
 		return nil, ErrNoRedis
 	}
-	return pool, nil
+	return &pool{
+		Pool: p,
+	}, nil
+}
+
+type pool struct {
+	redis.Pool
+	m sync.Mutex
+}
+
+type lock struct {
+	*pool
+	key string
+}
+
+func (l *lock) release() error {
+	conn := l.pool.Get()
+	defer conn.Close()
+
+	_, err := conn.Do("DEL", l.key)
+	return err
+}
+
+func (p *pool) getLock(key string) (*lock, error) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	conn := p.Pool.Get()
+	defer conn.Close()
+
+	_, err := redis.String(conn.Do("SET", key, "LOCK", "NX"))
+	if err != nil {
+		return nil, err
+	}
+	return &lock{p, key}, nil
+}
+
+func getJobUUID(jsn []byte) string {
+	return fmt.Sprintf("%x", md5.Sum(jsn))
+}
+
+type cronEntry struct {
+	JobUUID  string
+	Interval time.Duration
+	Last     time.Time
 }
