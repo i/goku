@@ -36,7 +36,7 @@ func (j SendEmailJob) Execute() error {
 
 // The return value from Name() should be unique from other jobs because it 
 // is used to differentiate between different jobs.
-func (j SendEmailJob) Name() error {
+func (j SendEmailJob) Name() string {
   return "send_email_job_v0"
 }
 
