@@ -131,7 +131,7 @@ func (wp *WorkerPool) startZPolling() {
 	}
 
 	for wp.running {
-		now := time.Now().UTC().Unix()
+		now := time.Now().UTC().UnixNano()
 		for _, zset := range zqstrs {
 			conn := wp.redisPool.Get()
 			res, err := redis.ByteSlices(conn.Do(zrangebyscore, zset, 0, now))

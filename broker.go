@@ -76,7 +76,7 @@ func (b *Broker) RunAt(job Job, t time.Time, opts ...JobOption) error {
 	defer conn.Close()
 
 	queue := scheduledQueue(b.queueOrDefault(jo.queue))
-	if _, err := conn.Do("ZADD", queue, t.UTC().Unix(), jsn); err != nil {
+	if _, err := conn.Do("ZADD", queue, t.UTC().UnixNano(), jsn); err != nil {
 		return err
 	}
 	return nil

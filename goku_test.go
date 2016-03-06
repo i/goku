@@ -195,14 +195,14 @@ func TestRunAt(t *testing.T) {
 	}
 
 	tjWasCalled = false
-	err = broker.RunAt(job, time.Now().Add(3*time.Second))
+	err = broker.RunAt(job, time.Now().Add(300*time.Millisecond))
 	assert.NoError(err)
 
 	// give workers some time to pull the job out of the queue
-	time.Sleep(2 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 	assert.False(tjWasCalled)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(250 * time.Millisecond)
 	wp.Stop()
 	assert.True(tjWasCalled)
 }
