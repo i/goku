@@ -41,10 +41,10 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 
 // Run schedules jobs to be run asynchronously. If queue is not specified, the
 // job will be schedules on the default queue.
-func (b *Broker) Run(job Job, opts ...JobOptions) error {
-	var jo JobOptions
-	if len(opts) == 1 {
-		jo = opts[0]
+func (b *Broker) Run(job Job, opts ...JobOption) error {
+	var jo jobOptions
+	for _, opt := range opts {
+		opt.f(&jo)
 	}
 
 	jsn, err := marshalJob(job)
@@ -55,16 +55,16 @@ func (b *Broker) Run(job Job, opts ...JobOptions) error {
 	conn := b.redisPool.Get()
 	defer conn.Close()
 
-	if _, err := conn.Do("RPUSH", b.queueOrDefault(jo.Queue), jsn); err != nil {
+	if _, err := conn.Do("RPUSH", b.queueOrDefault(jo.queue), jsn); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (b *Broker) RunAt(job Job, t time.Time, opts ...JobOptions) error {
-	var jo JobOptions
-	if len(opts) == 1 {
-		jo = opts[0]
+func (b *Broker) RunAt(job Job, t time.Time, opts ...JobOption) error {
+	var jo jobOptions
+	for _, opt := range opts {
+		opt.f(&jo)
 	}
 
 	jsn, err := marshalJob(job)
@@ -75,7 +75,7 @@ func (b *Broker) RunAt(job Job, t time.Time, opts ...JobOptions) error {
 	conn := b.redisPool.Get()
 	defer conn.Close()
 
-	queue := scheduledQueue(b.queueOrDefault(jo.Queue))
+	queue := scheduledQueue(b.queueOrDefault(jo.queue))
 	if _, err := conn.Do("ZADD", queue, t.UTC().Unix(), jsn); err != nil {
 		return err
 	}

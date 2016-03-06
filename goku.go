@@ -35,13 +35,25 @@ type Job interface {
 	Execute() error
 }
 
-type JobOptions struct {
-	Queue string
+// JobOption specifies an option for a job.
+type JobOption struct {
+	f func(*jobOptions)
+}
+
+// JobQueue specifies which queue to run a job on.
+func JobQueue(queue string) JobOption {
+	return JobOption{func(o *jobOptions) {
+		o.queue = queue
+	}}
+}
+
+type jobOptions struct {
+	queue string
 }
 
 // Run schedules a job using the default broker. Before calling goku.Run, the
 // default client must be configured using goku.Configure.
-func Run(j Job, opts ...JobOptions) error {
+func Run(j Job, opts ...JobOption) error {
 	if std == nil {
 		return ErrStdNotInitialized
 	}
@@ -50,7 +62,7 @@ func Run(j Job, opts ...JobOptions) error {
 
 // RunAt is the same as Run, except it schedules a job to run no sooner than
 // time t.
-func RunAt(j Job, t time.Time, opts ...JobOptions) error {
+func RunAt(j Job, t time.Time, opts ...JobOption) error {
 	if std == nil {
 		return ErrStdNotInitialized
 	}
