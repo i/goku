@@ -128,3 +128,11 @@ func main() {
   wp.Stop()
 }
 ```
+
+Contributing
+---------
+fork the repo and open a PR
+
+License
+---------
+MIT
