@@ -35,7 +35,7 @@ func (j SendEmailJob) Execute() error {
 }
 
 // The return value from Name() should be unique from other jobs because it 
-// is used to differentiate between different jobs.
+// is used to differentiate between different jobs. i'm the a new programmer learning pull requests! love you work hope you are having a good day 
 func (j SendEmailJob) Name() string {
   return "send_email_job_v0"
 }
